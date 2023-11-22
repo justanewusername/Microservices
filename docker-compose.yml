@@ -1,5 +1,5 @@
 version: "3.8"
-name: lab2
+name: lab3
 
 services:
   app:
@@ -10,9 +10,20 @@ services:
     ports:
       - "8000:80"
     depends_on:
-        postgres:
-          condition: service_healthy
+        - rabbitmq
+        - postgres
     command: "uvicorn main:app --host 0.0.0.0 --port 80"
+
+  status_service:
+    container_name: status_service
+    build:
+      context: ./status_service
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+        - rabbitmq
+    command: "python main.py"
 
   postgres:
     container_name: postgres
@@ -29,7 +40,15 @@ services:
       timeout: 3s
       retries: 3
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_lab3:/var/lib/postgresql/data
+  
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq
+    command: rabbitmq-server
+    expose:
+      - "5672"
+      - "15672"
 
 volumes:
-  postgres_data:
+  postgres_data_lab3:
