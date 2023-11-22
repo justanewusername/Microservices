@@ -1,0 +1,35 @@
+version: "3.8"
+name: lab2
+
+services:
+  app:
+    container_name: app
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "8000:80"
+    depends_on:
+        postgres:
+          condition: service_healthy
+    command: "uvicorn main:app --host 0.0.0.0 --port 80"
+
+  postgres:
+    container_name: postgres
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: mydbname
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: qwerty
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "mydbname", "-U", "user"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
