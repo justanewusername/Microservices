@@ -6,13 +6,11 @@ import pika
 import json
 
 
-
 class BrokerManager:
-    def __init__(queue_name: str, host: str):
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host))
-        channel = connection.channel()
-        channel.queue_declare(queue=queue_name)
-        return channel
+    def __init__(self, queue_name: str, host: str):
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host))
+        self.channel = self.connection.channel()
+        self.channel.queue_declare(queue=queue_name)
 
 class DatabaseManager:
     def __init__(self, database_url: str):
@@ -51,7 +49,7 @@ class DatabaseManager:
         session.close()
         if link is None:
             return None
-        return link.link
+        return link
     
     def update_link(self, link_id: int, new_status: int):
         session = self.SessionLocal()
@@ -71,25 +69,27 @@ class DatabaseManager:
 app = FastAPI()
 db_manager = DatabaseManager("postgresql://user:qwerty@postgres:5432/mydbname")
 
-queue_name = 'links'
-channel = BrokerManager(queue_name, 'rabbitmq')
-
 
 @app.post("/links/")
 def create_link(link: str):
     res = db_manager.create_link(link)
-    msg = json.dumps({'link_id': res.id, 'link': link})
-    channel.basic_publish(exchange='', routing_key=queue_name, body=msg)
+    print("ok!")
+    msg = json.dumps({'link_id': res['id'], 'link': link})
+    print('id:',  res['id'])
+    queue_name = 'links'
+    broker = BrokerManager(queue_name, 'rabbitmq')
+    broker.channel.basic_publish(exchange='', routing_key=queue_name, body=msg)
+    broker.channel.close()
     return res
 
 @app.get("/links/{link_id}")
 def read_link(link_id: int):
-    link_id = db_manager.read_link(link_id)
-    if link_id is None:
+    link = db_manager.read_link(link_id)
+    if link is None:
             raise HTTPException(status_code=404, detail="Link not found")
-    return link_id
+    return link
 
-@app.put("/links/{link_id}")
+@app.put("/links/")
 def update_link(link_id: int, status: int):
     updated_link = db_manager.update_link(link_id, status)
     if updated_link is None:
